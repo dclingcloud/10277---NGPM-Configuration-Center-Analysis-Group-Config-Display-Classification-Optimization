@@ -1,0 +1,6 @@
+{
+  "name": "NGPM 网络性能管理平台",
+  "description": "NGPM 网络性能监控与分析配置系统 - 分析组配置",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
