@@ -35,14 +35,18 @@ import {
   HelpCircle,
   CheckCircle2,
   AlertTriangle,
+  RotateCcw,
 } from 'lucide-react';
+
+export type LinkType = '接口' | 'VLAN' | '站点' | 'VXLAN' | 'MAC';
 
 interface AnalysisGroupItem {
   index: number;
   name: string;
   id: number;
+  type: LinkType; // 接口 | VLAN | 站点 | VXLAN | MAC
+  groupCategory: '链路组' | '应用组';
   description: string;
-  category: string; // '接口' | 'VLAN' | '站点' | 'VXLAN' | 'MAC' | '应用组'
   targetValue?: string;
   inBandwidth?: number;
   outBandwidth?: number;
@@ -50,12 +54,15 @@ interface AnalysisGroupItem {
   subObjectEnabled?: boolean;
 }
 
-// Tabs: 接口 VLAN 站点 VXLAN MAC 应用组
-const TABS = ['接口', 'VLAN', '站点', 'VXLAN', 'MAC', '应用组'] as const;
-type TabType = typeof TABS[number];
+// Top level tabs: 链路组 · 应用组
+const TABS = ['链路组', '应用组'] as const;
+type MainTab = typeof TABS[number];
 
-// Dynamic options for each tab type in Step 2
-const TYPE_OPTIONS: Record<TabType, string[]> = {
+// Link types available in Step 2 of modal and table column
+const LINK_TYPES: LinkType[] = ['接口', 'VLAN', '站点', 'VXLAN', 'MAC'];
+
+// Dynamic options for each link type
+const LINK_TYPE_OPTIONS: Record<LinkType, string[]> = {
   接口: [
     'ge-0/0/1 (核心交换机上联)',
     'ge-0/0/2 (汇聚接口-1)',
@@ -95,87 +102,70 @@ const TYPE_OPTIONS: Record<TabType, string[]> = {
     '70:69:79:AA:BB:CC (核心三层交换机)',
     'E4:43:4B:11:22:33 (关键服务器网卡)',
   ],
-  应用组: [
-    '核心账务交易应用组 (Core-Banking)',
-    '手机银行APP与网关组 (Mobile-App)',
-    '网银转账与支付业务组 (Payment-Sys)',
-    '企业OA与内部办公系统 (OA-Work)',
-    '大数据实时风控计算集群 (Risk-Cluster)',
-    '分布式微服务API网关 (API-Gateway)',
-  ],
 };
 
 const initialMockData: AnalysisGroupItem[] = [
-  // 接口 tab initial items (Image 1 replica)
-  { index: 1, name: '单向回放分析组', id: 62, description: '-', category: '接口', targetValue: 'ge-0/0/1 (核心交换机上联)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-  { index: 2, name: '接口分析组-vlan子对象', id: 61, description: '-', category: '接口', targetValue: 'ge-0/0/2 (汇聚接口-1)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-  { index: 3, name: '单接口1', id: 60, description: '-', category: '接口', targetValue: 'eth0 (探针采集口)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-  { index: 4, name: '测试123', id: 59, description: '-', category: '接口', targetValue: 'ge-0/0/1 (核心交换机上联)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-  { index: 5, name: '测试大屏', id: 58, description: '1111', category: '接口', targetValue: 'XGigabitEthernet0/0/1 (万兆主干)', inBandwidth: 2000, outBandwidth: 2000, totalBandwidth: 4000 },
-  { index: 6, name: '站点子链路', id: 57, description: '-', category: '接口', targetValue: 'bond0 (聚合链路接口)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-  { index: 7, name: 'DSCP1', id: 56, description: '-', category: '接口', targetValue: 'ge-0/0/1 (核心交换机上联)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-  { index: 8, name: '测试vlan', id: 54, description: '-', category: '接口', targetValue: 'ge-0/0/3 (汇聚接口-2)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-  { index: 9, name: '华三复现2', id: 53, description: '-', category: '接口', targetValue: 'ge-0/0/2 (汇聚接口-1)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-  { index: 10, name: '华三复现接口分析组', id: 52, description: '-', category: '接口', targetValue: 'ge-0/0/1 (核心交换机上联)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-  { index: 11, name: '华三复现', id: 51, description: '-', category: '接口', targetValue: 'ge-0/0/1 (核心交换机上联)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-  { index: 12, name: 'dscp', id: 50, description: '-', category: '接口', targetValue: 'ge-0/0/2 (汇聚接口-1)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-  { index: 13, name: '多接口分析组', id: 49, description: '-', category: '接口', targetValue: 'bond0 (聚合链路接口)', inBandwidth: 2000, outBandwidth: 2000, totalBandwidth: 4000 },
-  { index: 14, name: 'VLAN分析组子对象测试2', id: 48, description: '-', category: '接口', targetValue: 'ge-0/0/1 (核心交换机上联)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-  { index: 15, name: 'VLAN分析组子对象测试', id: 47, description: '-', category: '接口', targetValue: 'ge-0/0/1 (核心交换机上联)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-  { index: 16, name: 'test2', id: 46, description: '-', category: '接口', targetValue: 'eth0 (探针采集口)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-  { index: 17, name: 'test', id: 45, description: '-', category: '接口', targetValue: 'eth0 (探针采集口)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-  { index: 18, name: 'dashboard-接口分析组', id: 42, description: '-', category: '接口', targetValue: 'ge-0/0/1 (核心交换机上联)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-  { index: 19, name: 'vlan分析组测试', id: 41, description: '-', category: '接口', targetValue: 'ge-0/0/2 (汇聚接口-1)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-  { index: 20, name: '全部接口', id: 40, description: '-', category: '接口', targetValue: 'ge-0/0/1 (核心交换机上联)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-  { index: 21, name: 'vlan-站点', id: 39, description: '-', category: '接口', targetValue: 'ge-0/0/1 (核心交换机上联)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-  { index: 22, name: '接口-站点子链路', id: 38, description: '-', category: '接口', targetValue: 'ge-0/0/2 (汇聚接口-1)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-  { index: 23, name: 'vlan分析组', id: 37, description: '-', category: '接口', targetValue: 'ge-0/0/1 (核心交换机上联)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-  { index: 24, name: 'vlan-jack', id: 35, description: '-', category: '接口', targetValue: 'eth0 (探针采集口)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  // 链路组 items with specific link types
+  { index: 1, name: '单向回放分析组', id: 62, type: '接口', groupCategory: '链路组', description: '-', targetValue: 'ge-0/0/1 (核心交换机上联)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  { index: 2, name: '接口分析组-vlan子对象', id: 61, type: '接口', groupCategory: '链路组', description: '-', targetValue: 'ge-0/0/2 (汇聚接口-1)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  { index: 3, name: '单接口1', id: 60, type: '接口', groupCategory: '链路组', description: '-', targetValue: 'eth0 (探针采集口)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  { index: 4, name: '测试123', id: 59, type: '接口', groupCategory: '链路组', description: '-', targetValue: 'ge-0/0/1 (核心交换机上联)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  { index: 5, name: '测试大屏', id: 58, type: '接口', groupCategory: '链路组', description: '1111', targetValue: 'XGigabitEthernet0/0/1 (万兆主干)', inBandwidth: 2000, outBandwidth: 2000, totalBandwidth: 4000 },
+  { index: 6, name: '站点子链路', id: 57, type: '站点', groupCategory: '链路组', description: '-', targetValue: '北京总行生产中心 (Site-BJ-01)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  { index: 7, name: 'DSCP1', id: 56, type: '接口', groupCategory: '链路组', description: '-', targetValue: 'ge-0/0/1 (核心交换机上联)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  { index: 8, name: '测试vlan', id: 54, type: 'VLAN', groupCategory: '链路组', description: '-', targetValue: 'VLAN 10 (业务生产专网)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  { index: 9, name: '华三复现2', id: 53, type: '接口', groupCategory: '链路组', description: '-', targetValue: 'ge-0/0/2 (汇聚接口-1)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  { index: 10, name: '华三复现接口分析组', id: 52, type: '接口', groupCategory: '链路组', description: '-', targetValue: 'ge-0/0/1 (核心交换机上联)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  { index: 11, name: '华三复现', id: 51, type: '接口', groupCategory: '链路组', description: '-', targetValue: 'ge-0/0/1 (核心交换机上联)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  { index: 12, name: 'dscp', id: 50, type: '接口', groupCategory: '链路组', description: '-', targetValue: 'ge-0/0/2 (汇聚接口-1)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  { index: 13, name: '多接口分析组', id: 49, type: '接口', groupCategory: '链路组', description: '-', targetValue: 'bond0 (聚合链路接口)', inBandwidth: 2000, outBandwidth: 2000, totalBandwidth: 4000 },
+  { index: 14, name: 'VLAN分析组子对象测试2', id: 48, type: 'VLAN', groupCategory: '链路组', description: '-', targetValue: 'VLAN 20 (核心管理网)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  { index: 15, name: 'VLAN分析组子对象测试', id: 47, type: 'VLAN', groupCategory: '链路组', description: '-', targetValue: 'VLAN 30 (同城容灾专线)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  { index: 16, name: 'test2', id: 46, type: '接口', groupCategory: '链路组', description: '-', targetValue: 'eth0 (探针采集口)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  { index: 17, name: 'test', id: 45, type: '接口', groupCategory: '链路组', description: '-', targetValue: 'eth0 (探针采集口)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  { index: 18, name: 'dashboard-接口分析组', id: 42, type: '接口', groupCategory: '链路组', description: '-', targetValue: 'ge-0/0/1 (核心交换机上联)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  { index: 19, name: 'vlan分析组测试', id: 41, type: 'VLAN', groupCategory: '链路组', description: '-', targetValue: 'VLAN 100 (DMZ隔离区)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  { index: 20, name: '全部接口', id: 40, type: '接口', groupCategory: '链路组', description: '-', targetValue: 'ge-0/0/1 (核心交换机上联)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  { index: 21, name: 'vlan-站点', id: 39, type: '站点', groupCategory: '链路组', description: '-', targetValue: '上海同城灾备中心 (Site-SH-02)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  { index: 22, name: '接口-站点子链路', id: 38, type: '站点', groupCategory: '链路组', description: '-', targetValue: '广州异地灾备中心 (Site-GZ-04)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  { index: 23, name: 'vlan分析组', id: 37, type: 'VLAN', groupCategory: '链路组', description: '-', targetValue: 'VLAN 200 (财务与清算网)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  { index: 24, name: 'vlan-jack', id: 35, type: 'VLAN', groupCategory: '链路组', description: '-', targetValue: 'VLAN 800 (数据库集群内网)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  { index: 25, name: '租户大二层隧道组', id: 34, type: 'VXLAN', groupCategory: '链路组', description: '数据中心跨主机Overlay', targetValue: 'VNI 5001 (Overlay-Tenant-A)', inBandwidth: 3000, outBandwidth: 3000, totalBandwidth: 6000 },
+  { index: 26, name: 'Fabric大二层组', id: 33, type: 'VXLAN', groupCategory: '链路组', description: 'Spine-Leaf网络组', targetValue: 'VNI 6001 (Spine-Leaf-Fabric)', inBandwidth: 4000, outBandwidth: 4000, totalBandwidth: 8000 },
+  { index: 27, name: '核心网关网卡组', id: 32, type: 'MAC', groupCategory: '链路组', description: '核心交换机网关MAC', targetValue: '00:50:56:C0:00:01 (核心网关Gateway)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
+  { index: 28, name: 'F5负载均衡主备组', id: 31, type: 'MAC', groupCategory: '链路组', description: 'F5设备MAC分析', targetValue: '52:54:00:12:34:56 (核心负载均衡F5)', inBandwidth: 2000, outBandwidth: 2000, totalBandwidth: 4000 },
 
-  // VLAN tab items
-  { index: 1, name: '业务生产网VLAN组', id: 71, description: '核心业务VLAN聚合', category: 'VLAN', targetValue: 'VLAN 10 (业务生产专网)', inBandwidth: 2000, outBandwidth: 2000, totalBandwidth: 4000 },
-  { index: 2, name: '管理隔离网VLAN分析', id: 72, description: '-', category: 'VLAN', targetValue: 'VLAN 20 (核心管理网)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-  { index: 3, name: '同城容灾专线VLAN', id: 73, description: '容灾心跳线路', category: 'VLAN', targetValue: 'VLAN 30 (同城容灾专线)', inBandwidth: 1500, outBandwidth: 1500, totalBandwidth: 3000 },
-  { index: 4, name: 'DMZ边界互联VLAN', id: 74, description: '-', category: 'VLAN', targetValue: 'VLAN 100 (DMZ隔离区)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-
-  // 站点 tab items
-  { index: 1, name: '北京总行中心分析组', id: 81, description: '北京主数据中心', category: '站点', targetValue: '北京总行生产中心 (Site-BJ-01)', inBandwidth: 5000, outBandwidth: 5000, totalBandwidth: 10000 },
-  { index: 2, name: '上海同城灾备组', id: 82, description: '同城双活节点', category: '站点', targetValue: '上海同城灾备中心 (Site-SH-02)', inBandwidth: 4000, outBandwidth: 4000, totalBandwidth: 8000 },
-  { index: 3, name: '广州异地容灾分析组', id: 83, description: '-', category: '站点', targetValue: '广州异地灾备中心 (Site-GZ-04)', inBandwidth: 2000, outBandwidth: 2000, totalBandwidth: 4000 },
-
-  // VXLAN tab items
-  { index: 1, name: '租户A大二层VXLAN组', id: 85, description: '跨主机Overlay分析', category: 'VXLAN', targetValue: 'VNI 5001 (Overlay-Tenant-A)', inBandwidth: 2000, outBandwidth: 2000, totalBandwidth: 4000 },
-  { index: 2, name: 'Spine-Leaf Fabric分析', id: 86, description: '数据中心底层Fabric', category: 'VXLAN', targetValue: 'VNI 6001 (Spine-Leaf-Fabric)', inBandwidth: 8000, outBandwidth: 8000, totalBandwidth: 16000 },
-  { index: 3, name: '容器云网络隧道分析', id: 87, description: '-', category: 'VXLAN', targetValue: 'VNI 8000 (容器云网络隧道)', inBandwidth: 3000, outBandwidth: 3000, totalBandwidth: 6000 },
-
-  // MAC tab items
-  { index: 1, name: '核心网关MAC监控', id: 91, description: '三层交换机网关', category: 'MAC', targetValue: '00:50:56:C0:00:01 (核心网关Gateway)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-  { index: 2, name: '负载均衡集群MAC组', id: 92, description: 'F5主备群组', category: 'MAC', targetValue: '52:54:00:12:34:56 (核心负载均衡F5)', inBandwidth: 2500, outBandwidth: 2500, totalBandwidth: 5000 },
-  { index: 3, name: '探针镜像端口MAC', id: 93, description: '-', category: 'MAC', targetValue: '00:0C:29:8B:12:34 (旁路分析探针网卡)', inBandwidth: 1000, outBandwidth: 1000, totalBandwidth: 2000 },
-
-  // 应用组 tab items
-  { index: 1, name: '核心账务交易监控组', id: 95, description: '关键核心业务流', category: '应用组', targetValue: '核心账务交易应用组 (Core-Banking)', inBandwidth: 4000, outBandwidth: 4000, totalBandwidth: 8000 },
-  { index: 2, name: '手机银行APP服务组', id: 96, description: '对外服务网关分析', category: '应用组', targetValue: '手机银行APP与网关组 (Mobile-App)', inBandwidth: 3000, outBandwidth: 3000, totalBandwidth: 6000 },
-  { index: 3, name: '实时风控计算链路', id: 97, description: '风控模型API分析', category: '应用组', targetValue: '大数据实时风控计算集群 (Risk-Cluster)', inBandwidth: 1500, outBandwidth: 1500, totalBandwidth: 3000 },
+  // 应用组 sample items
+  { index: 1, name: '核心交易账务应用组', id: 70, type: '接口', groupCategory: '应用组', description: '核心记账主流程', targetValue: 'ge-0/0/1', inBandwidth: 4000, outBandwidth: 4000, totalBandwidth: 8000 },
+  { index: 2, name: '手机银行APP网关组', id: 69, type: '接口', groupCategory: '应用组', description: '对外服务接入网关', targetValue: 'ge-0/0/2', inBandwidth: 3000, outBandwidth: 3000, totalBandwidth: 6000 },
+  { index: 3, name: '大数据实时风控链路', id: 68, type: '接口', groupCategory: '应用组', description: '实时规则校验集群', targetValue: 'bond0', inBandwidth: 2000, outBandwidth: 2000, totalBandwidth: 4000 },
 ];
 
 export default function App() {
   const [data, setData] = useState<AnalysisGroupItem[]>(initialMockData);
-  const [activeTab, setActiveTab] = useState<TabType>('接口');
-  const [searchValue, setSearchValue] = useState('');
+  const [activeTab, setActiveTab] = useState<MainTab>('链路组');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+
+  // Toggle state for table inline filter row (Image 3 & Image 4)
+  const [isFilterRowOpen, setIsFilterRowOpen] = useState(false);
+
+  // Filter input states for the 4 filterable columns: 名称, ID, 类型, 描述
+  const [filterName, setFilterName] = useState('');
+  const [filterId, setFilterId] = useState('');
+  const [filterType, setFilterType] = useState<string>(''); // '' means all
+  const [filterDesc, setFilterDesc] = useState('');
 
   // Modal State for New/Edit
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [modalCategory, setModalCategory] = useState<TabType>('接口');
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
 
-  // Form State
+  // Form State (includes 链路类型 matching Image 2)
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    linkType: '接口' as LinkType, // 链路类型
     targetValue: '',
     inBandwidth: 1000,
     inUnit: 'Mbps',
@@ -206,12 +196,12 @@ export default function App() {
   const handleOpenCreate = () => {
     setModalMode('create');
     setEditingId(null);
-    setModalCategory(activeTab); // Dynamically set modal category to active tab!
     setCurrentStep(1);
     setFormError('');
     setFormData({
       name: '',
       description: '',
+      linkType: '接口',
       targetValue: '',
       inBandwidth: 1000,
       inUnit: 'Mbps',
@@ -228,13 +218,12 @@ export default function App() {
   const handleOpenEdit = (item: AnalysisGroupItem) => {
     setModalMode('edit');
     setEditingId(item.id);
-    const itemCat = (item.category as TabType) || activeTab;
-    setModalCategory(itemCat);
     setCurrentStep(1);
     setFormError('');
     setFormData({
       name: item.name,
       description: item.description === '-' ? '' : item.description,
+      linkType: item.type || '接口',
       targetValue: item.targetValue || '',
       inBandwidth: item.inBandwidth || 1000,
       inUnit: 'Mbps',
@@ -296,8 +285,9 @@ export default function App() {
         id: maxId + 1,
         name: formData.name.trim(),
         description: formData.description.trim() || '-',
-        category: modalCategory,
-        targetValue: formData.targetValue || TYPE_OPTIONS[modalCategory][0],
+        type: formData.linkType,
+        groupCategory: activeTab,
+        targetValue: formData.targetValue || LINK_TYPE_OPTIONS[formData.linkType][0],
         inBandwidth: formData.inBandwidth,
         outBandwidth: formData.outBandwidth,
         totalBandwidth: formData.totalBandwidth,
@@ -305,13 +295,13 @@ export default function App() {
       };
 
       // Add to front of current category
-      const otherCatItems = data.filter((item) => item.category !== modalCategory);
+      const otherCatItems = data.filter((item) => item.groupCategory !== activeTab);
       const sameCatItems = data
-        .filter((item) => item.category === modalCategory)
+        .filter((item) => item.groupCategory === activeTab)
         .map((item, idx) => ({ ...item, index: idx + 2 }));
 
       setData([newItem, ...sameCatItems, ...otherCatItems]);
-      showToast(`新建【${modalCategory}】分析组成功`);
+      showToast(`新建【${formData.linkType}】分析组成功`);
     } else if (modalMode === 'edit' && editingId !== null) {
       setData((prev) =>
         prev.map((item) => {
@@ -320,7 +310,7 @@ export default function App() {
               ...item,
               name: formData.name.trim(),
               description: formData.description.trim() || '-',
-              category: modalCategory,
+              type: formData.linkType,
               targetValue: formData.targetValue || item.targetValue,
               inBandwidth: formData.inBandwidth,
               outBandwidth: formData.outBandwidth,
@@ -339,12 +329,12 @@ export default function App() {
   // Delete handling
   const handleConfirmDelete = () => {
     if (deleteItem) {
-      const targetCat = deleteItem.category;
+      const targetCat = deleteItem.groupCategory;
       setData((prev) => {
         const remainingInCat = prev
-          .filter((item) => item.category === targetCat && item.id !== deleteItem.id)
+          .filter((item) => item.groupCategory === targetCat && item.id !== deleteItem.id)
           .map((item, idx) => ({ ...item, index: idx + 1 }));
-        const otherCats = prev.filter((item) => item.category !== targetCat);
+        const otherCats = prev.filter((item) => item.groupCategory !== targetCat);
         return [...remainingInCat, ...otherCats];
       });
       setSelectedIds((prev) => prev.filter((id) => id !== deleteItem.id));
@@ -365,9 +355,9 @@ export default function App() {
   const handleConfirmBatchDelete = () => {
     setData((prev) => {
       const remainingInCat = prev
-        .filter((item) => item.category === activeTab && !selectedIds.includes(item.id))
+        .filter((item) => item.groupCategory === activeTab && !selectedIds.includes(item.id))
         .map((item, idx) => ({ ...item, index: idx + 1 }));
-      const otherCats = prev.filter((item) => item.category !== activeTab);
+      const otherCats = prev.filter((item) => item.groupCategory !== activeTab);
       return [...remainingInCat, ...otherCats];
     });
     showToast(`成功批量删除 ${selectedIds.length} 个分析组`);
@@ -382,19 +372,37 @@ export default function App() {
     );
   };
 
-  // Tab filtered items
-  const tabData = data.filter((item) => item.category === activeTab);
+  // Reset filters
+  const handleResetFilters = () => {
+    setFilterName('');
+    setFilterId('');
+    setFilterType('');
+    setFilterDesc('');
+    showToast('已重置所有过滤条件');
+  };
 
-  // Search filtered items within the active tab
+  // Tab filtered items
+  const tabData = data.filter((item) => item.groupCategory === activeTab);
+
+  // Search filtered items within the active tab using the inline filter criteria
   const filteredData = tabData.filter((item) => {
-    if (!searchValue.trim()) return true;
-    const query = searchValue.toLowerCase();
-    return (
-      item.name.toLowerCase().includes(query) ||
-      item.description.toLowerCase().includes(query) ||
-      item.id.toString().includes(query) ||
-      (item.targetValue && item.targetValue.toLowerCase().includes(query))
-    );
+    // Name filter
+    if (filterName.trim() && !item.name.toLowerCase().includes(filterName.trim().toLowerCase())) {
+      return false;
+    }
+    // ID filter
+    if (filterId.trim() && !item.id.toString().includes(filterId.trim())) {
+      return false;
+    }
+    // Type filter (dropdown)
+    if (filterType && item.type !== filterType) {
+      return false;
+    }
+    // Description filter
+    if (filterDesc.trim() && !item.description.toLowerCase().includes(filterDesc.trim().toLowerCase())) {
+      return false;
+    }
+    return true;
   });
 
   const toggleSelectAll = () => {
@@ -622,9 +630,9 @@ export default function App() {
         <main className="flex-1 overflow-auto p-3">
           <div className="flex min-h-full flex-col justify-between rounded bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)] border border-[#e5e7eb]">
             <div>
-              {/* Card Header: Tabs & Action Toolbar */}
+              {/* Card Header: Tabs (链路组 · 应用组, 如图1) & Action Toolbar */}
               <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3 border-b border-transparent pb-1">
-                {/* Tabs: 接口 · VLAN · 站点 · VXLAN · MAC · 应用组 */}
+                {/* Requirement 1: 链路组 · 应用组 (如图1) */}
                 <div className="flex items-center text-[13px] select-none font-sans">
                   {TABS.map((tab, idx) => {
                     const isActive = activeTab === tab;
@@ -691,17 +699,20 @@ export default function App() {
                     <Download className="h-3 w-3" />
                     <span>模板下载</span>
                   </button>
-                  {/* Search / Filter input */}
-                  <div className="relative flex items-center">
-                    <Filter className="absolute left-2 h-3 w-3 text-[#bfbfbf]" />
-                    <input
-                      type="text"
-                      value={searchValue}
-                      onChange={(e) => setSearchValue(e.target.value)}
-                      placeholder="检索名称或描述"
-                      className="h-[28px] w-40 rounded border border-[#d9d9d9] pl-7 pr-2 text-xs text-[#333333] placeholder-[#bfbfbf] focus:border-[#1677ff] focus:outline-none"
-                    />
-                  </div>
+
+                  {/* Requirement 4: 右上角过滤去掉，换成图3按钮 (点击触发列表行内过滤) */}
+                  <button
+                    type="button"
+                    onClick={() => setIsFilterRowOpen(!isFilterRowOpen)}
+                    title={isFilterRowOpen ? '收起过滤' : '展开过滤'}
+                    className={`flex h-[28px] w-[28px] items-center justify-center rounded border transition-colors cursor-pointer shadow-sm ${
+                      isFilterRowOpen
+                        ? 'border-[#0091ff] bg-[#e6f4ff] text-[#0091ff]'
+                        : 'border-[#d9d9d9] bg-white text-[#595959] hover:border-[#0091ff] hover:text-[#0091ff]'
+                    }`}
+                  >
+                    <Filter className="h-3.5 w-3.5 stroke-[2]" />
+                  </button>
                 </div>
               </div>
 
@@ -709,6 +720,7 @@ export default function App() {
               <div className="w-full overflow-x-auto">
                 <table className="w-full border-collapse text-left text-xs">
                   <thead>
+                    {/* Header Row */}
                     <tr className="border-b border-[#f0f0f0] text-[#666666] font-normal">
                       <th className="py-2.5 px-3 font-normal w-[40px]">
                         <input
@@ -719,16 +731,100 @@ export default function App() {
                         />
                       </th>
                       <th className="py-2.5 px-3 font-normal w-[60px]">序号</th>
-                      <th className="py-2.5 px-3 font-normal w-[260px]">名称</th>
-                      <th className="py-2.5 px-3 font-normal w-[120px]">ID</th>
+                      <th className="py-2.5 px-3 font-normal w-[240px]">名称</th>
+                      <th className="py-2.5 px-3 font-normal w-[90px]">ID</th>
+                      {/* Requirement 2: 列表中在ID列后加类型、类型分类为接口、VLAN、站点、VXLAN、MAC */}
+                      <th className="py-2.5 px-3 font-normal w-[110px]">类型</th>
                       <th className="py-2.5 px-3 font-normal">描述</th>
-                      <th className="py-2.5 px-4 font-normal text-right w-[90px]">操作</th>
+                      <th className="py-2.5 px-4 font-normal text-right w-[110px]">操作</th>
                     </tr>
+
+                    {/* Requirement 4: 类似于图4样式展示的行内过滤器 (名称、ID、类型[下拉]、描述) */}
+                    {isFilterRowOpen && (
+                      <tr className="bg-[#fafafa] border-b border-[#e8e8e8] animate-in fade-in duration-150">
+                        {/* Checkbox col placeholder */}
+                        <td className="py-1.5 px-3 text-center text-[#bfbfbf]">-</td>
+                        {/* 序号 col placeholder */}
+                        <td className="py-1.5 px-3 text-center text-[#bfbfbf]">-</td>
+                        {/* 名称 Filter Input */}
+                        <td className="py-1.5 px-3">
+                          <input
+                            type="text"
+                            placeholder="名称"
+                            value={filterName}
+                            onChange={(e) => setFilterName(e.target.value)}
+                            className="h-6 w-full rounded border border-[#d9d9d9] bg-white px-2 text-xs text-[#262626] placeholder-[#bfbfbf] focus:border-[#0091ff] focus:outline-none"
+                          />
+                        </td>
+                        {/* ID Filter Input */}
+                        <td className="py-1.5 px-3">
+                          <input
+                            type="text"
+                            placeholder="ID"
+                            value={filterId}
+                            onChange={(e) => setFilterId(e.target.value)}
+                            className="h-6 w-full rounded border border-[#d9d9d9] bg-white px-2 text-xs text-[#262626] placeholder-[#bfbfbf] focus:border-[#0091ff] focus:outline-none"
+                          />
+                        </td>
+                        {/* 类型 Dropdown Filter */}
+                        <td className="py-1.5 px-3">
+                          <div className="relative w-full">
+                            <select
+                              value={filterType}
+                              onChange={(e) => setFilterType(e.target.value)}
+                              className="h-6 w-full appearance-none rounded border border-[#d9d9d9] bg-white pl-2 pr-6 text-xs text-[#262626] focus:border-[#0091ff] focus:outline-none cursor-pointer"
+                            >
+                              <option value="">全部类型</option>
+                              {LINK_TYPES.map((t) => (
+                                <option key={t} value={t}>
+                                  {t}
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronDown className="pointer-events-none absolute right-1.5 top-1.5 h-3 w-3 text-[#8c8c8c]" />
+                          </div>
+                        </td>
+                        {/* 描述 Filter Input */}
+                        <td className="py-1.5 px-3">
+                          <input
+                            type="text"
+                            placeholder="描述"
+                            value={filterDesc}
+                            onChange={(e) => setFilterDesc(e.target.value)}
+                            className="h-6 w-full rounded border border-[#d9d9d9] bg-white px-2 text-xs text-[#262626] placeholder-[#bfbfbf] focus:border-[#0091ff] focus:outline-none"
+                          />
+                        </td>
+                        {/* Filter Actions in 操作 col (Image 4 search & reset buttons) */}
+                        <td className="py-1.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => showToast(`已过滤出 ${filteredData.length} 条记录`)}
+                              className="flex h-6 w-6 items-center justify-center rounded bg-[#0091ff] hover:bg-[#0080e6] text-white transition-colors cursor-pointer shadow-xs"
+                              title="执行过滤"
+                            >
+                              <Search className="h-3 w-3 stroke-[2.5]" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleResetFilters}
+                              className="flex h-6 w-6 items-center justify-center rounded bg-[#0091ff] hover:bg-[#0080e6] text-white transition-colors cursor-pointer shadow-xs"
+                              title="重置过滤条件"
+                            >
+                              <RotateCcw className="h-3 w-3 stroke-[2.5]" />
+                            </button>
+                            <span title="支持按名称、ID、类型下拉及描述组合过滤" className="cursor-help inline-flex items-center ml-0.5">
+                              <HelpCircle className="h-3.5 w-3.5 text-[#8c8c8c]" />
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
                   </thead>
                   <tbody>
                     {filteredData.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-[#8c8c8c]">
+                        <td colSpan={7} className="py-8 text-center text-[#8c8c8c]">
                           暂无匹配的【{activeTab}】分析组数据
                         </td>
                       </tr>
@@ -754,6 +850,12 @@ export default function App() {
                           </td>
                           <td className="py-2 px-3 text-[#555555] font-mono tabular-nums">
                             {row.id}
+                          </td>
+                          {/* Requirement 2: 类型列展示 */}
+                          <td className="py-2 px-3">
+                            <span className="text-[#333333]">
+                              {row.type}
+                            </span>
                           </td>
                           <td className="py-2 px-3 text-[#666666]">
                             {row.description}
@@ -864,14 +966,14 @@ export default function App() {
         </button>
       </div>
 
-      {/* 5. Create / Edit Stepper Modal (Step 2 dynamically changes by tab: 接口, VLAN, 站点, VXLAN, MAC, 应用组) */}
+      {/* 5. Create / Edit Stepper Modal (Requirement 3: 增加链路类型, 如图2) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[1px] animate-in fade-in duration-150">
           <div className="relative w-[700px] rounded-lg bg-white shadow-2xl overflow-hidden border border-[#e5e7eb] animate-in zoom-in-95 duration-150">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 pt-5 pb-3">
               <h3 className="text-[15px] font-medium text-[#1f2937]">
-                {modalMode === 'create' ? `新建${modalCategory}分析组` : `编辑${modalCategory}分析组`}
+                {modalMode === 'create' ? '新建' : '编辑'}
               </h3>
               <button
                 type="button"
@@ -953,7 +1055,7 @@ export default function App() {
               )}
 
               {currentStep === 1 ? (
-                /* Step 1 Form (Image 1 replica) */
+                /* Step 1 Form */
                 <div className="space-y-5 flex flex-col items-center justify-center pt-2">
                   <div className="flex items-center gap-4 w-[520px]">
                     <label className="w-16 text-right text-xs text-[#262626] font-normal">
@@ -988,12 +1090,40 @@ export default function App() {
                   </div>
                 </div>
               ) : (
-                /* Step 2 Form: DYNAMIC LABEL & OPTIONS BASED ON TAB (接口 / VLAN / 站点 / VXLAN / MAC / 应用组) */
+                /* Step 2 Form (Requirement 3: 增加链路类型, 如图2) */
                 <div className="space-y-4 flex flex-col items-center justify-center pt-1">
-                  {/* Dynamic Target Field: 接口 / VLAN / 站点 / VXLAN / MAC / 应用组 */}
+                  {/* Field: 链路类型 (Image 2) */}
                   <div className="flex items-center gap-4 w-[520px]">
                     <label className="w-20 text-right text-xs text-[#262626] font-normal">
-                      {modalCategory}
+                      链路类型
+                    </label>
+                    <div className="relative flex-1">
+                      <select
+                        value={formData.linkType}
+                        onChange={(e) => {
+                          const newType = e.target.value as LinkType;
+                          setFormData({
+                            ...formData,
+                            linkType: newType,
+                            targetValue: '', // reset selected target for the new type
+                          });
+                        }}
+                        className="h-8 w-full appearance-none rounded border border-[#0091ff] bg-white px-3 pr-8 text-xs text-[#262626] focus:border-[#0091ff] focus:outline-none transition-colors cursor-pointer font-medium"
+                      >
+                        {LINK_TYPES.map((lt) => (
+                          <option key={lt} value={lt}>
+                            {lt}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-3.5 w-3.5 text-[#0091ff]" />
+                    </div>
+                  </div>
+
+                  {/* Field: 对应所选链路类型的具体项 (接口 / VLAN / 站点 / VXLAN / MAC) */}
+                  <div className="flex items-center gap-4 w-[520px]">
+                    <label className="w-20 text-right text-xs text-[#262626] font-normal">
+                      {formData.linkType}
                     </label>
                     <div className="relative flex-1">
                       <select
@@ -1004,7 +1134,7 @@ export default function App() {
                         className="h-8 w-full appearance-none rounded border border-[#d9d9d9] bg-white px-3 pr-8 text-xs text-[#262626] focus:border-[#0091ff] focus:outline-none transition-colors cursor-pointer"
                       >
                         <option value="">请选择</option>
-                        {TYPE_OPTIONS[modalCategory]?.map((opt) => (
+                        {LINK_TYPE_OPTIONS[formData.linkType]?.map((opt) => (
                           <option key={opt} value={opt}>
                             {opt}
                           </option>
